@@ -167,11 +167,9 @@ const getTestNamesPath = (
 
 export const collectTestsWithoutRunning = async ({
   config,
-  globalConfig,
   testPath,
 }: {
   config: Config.ProjectConfig;
-  globalConfig: Config.GlobalConfig;
   testPath: string;
 }): Promise<TestResult> => {
   const {rootDescribeBlock} = getRunnerState();

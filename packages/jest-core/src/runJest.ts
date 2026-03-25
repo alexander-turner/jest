@@ -330,36 +330,36 @@ export default async function runJest({
       testName: string;
     }> = [];
 
-    // Filter assertion results per test file
-    for (const testResult of results.testResults) {
-      if (testNamePatternRE) {
-        testResult.testResults = testResult.testResults.filter(assertion => {
-          const fullName = [...assertion.ancestorTitles, assertion.title].join(
-            ' ',
-          );
-          return testNamePatternRE.test(fullName);
-        });
-      }
+    // Build filtered view without mutating original results
+    const filteredTestResults = results.testResults
+      .map(testResult => {
+        const assertions = testNamePatternRE
+          ? testResult.testResults.filter(assertion => {
+              const fullName = [
+                ...assertion.ancestorTitles,
+                assertion.title,
+              ].join(' ');
+              return testNamePatternRE.test(fullName);
+            })
+          : testResult.testResults;
 
-      const filePath = testResult.testFilePath;
-      for (const assertion of testResult.testResults) {
-        collectedTests.push({
-          ancestorTitles: assertion.ancestorTitles,
-          filePath,
-          testName: assertion.title,
-        });
-      }
-    }
+        const filePath = testResult.testFilePath;
+        for (const assertion of assertions) {
+          collectedTests.push({
+            ancestorTitles: assertion.ancestorTitles,
+            filePath,
+            testName: assertion.title,
+          });
+        }
 
-    // Remove test suites with no matching tests
-    results.testResults = results.testResults.filter(
-      r => r.testResults.length > 0,
-    );
+        return {assertions, filePath};
+      })
+      .filter(r => r.assertions.length > 0);
 
     if (globalConfig.json) {
       const jsonOutput = {
         collectedTests,
-        numTotalTestSuites: results.numTotalTestSuites,
+        numTotalTestSuites: filteredTestResults.length,
         numTotalTests: collectedTests.length,
         success: true,
       };
@@ -375,9 +375,9 @@ export default async function runJest({
         process.stdout.write(`${jsonString}\n`);
       }
     } else {
-      for (const testResult of results.testResults) {
-        outputStream.write(`${testResult.testFilePath}\n`);
-        printCollectedTestTree(testResult.testResults, outputStream);
+      for (const {assertions, filePath} of filteredTestResults) {
+        outputStream.write(`${filePath}\n`);
+        printCollectedTestTree(assertions, outputStream);
       }
     }
 

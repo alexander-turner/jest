@@ -902,9 +902,9 @@ export default async function normalize(
       case 'errorOnDeprecated':
       case 'expand':
       case 'extensionsToTreatAsEsm':
+      case 'collectOnly':
       case 'globals':
       case 'fakeTimers':
-      case 'collectOnly':
       case 'findRelatedTests':
       case 'forceCoverageMatch':
       case 'forceExit':
