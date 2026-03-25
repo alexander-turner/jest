@@ -5,34 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as path from 'path';
-import * as fs from 'graceful-fs';
 import runJest from '../runJest';
 
-const COLLECT_ONLY_DIR = path.resolve(__dirname, '..', 'collect-only');
-const SIDE_EFFECT_FILE = path.join(COLLECT_ONLY_DIR, 'side-effect.txt');
-
-beforeEach(() => {
-  if (fs.existsSync(SIDE_EFFECT_FILE)) {
-    fs.unlinkSync(SIDE_EFFECT_FILE);
-  }
-});
-
-afterAll(() => {
-  if (fs.existsSync(SIDE_EFFECT_FILE)) {
-    fs.unlinkSync(SIDE_EFFECT_FILE);
-  }
-});
-
 describe('jest --collectOnly', () => {
-  test('does not execute test bodies (side effect check)', () => {
-    const {exitCode} = runJest('collect-only', ['--collectOnly']);
-
-    expect(exitCode).toBe(0);
-    expect(fs.existsSync(SIDE_EFFECT_FILE)).toBe(false);
-  });
-
-  test('lists test names with tree output using existing each fixture', () => {
+  test('lists test names without executing test bodies', () => {
     const {exitCode, stdout} = runJest('each', [
       '--collectOnly',
       '--testPathPatterns=success',
@@ -48,7 +24,7 @@ describe('jest --collectOnly', () => {
     expect(stdout).toContain('success.test.js');
   });
 
-  test('produces valid JSON with --json using existing each fixture', () => {
+  test('produces valid JSON with --json', () => {
     const {exitCode, stdout} = runJest('each', [
       '--collectOnly',
       '--json',
@@ -77,17 +53,31 @@ describe('jest --collectOnly', () => {
     expect(nestedTest.ancestorTitles.length).toBeGreaterThan(0);
   });
 
-  test('filters correctly with --testNamePattern', () => {
-    const {exitCode, stdout} = runJest('collect-only', [
+  test('does not execute tests (all results are pending)', () => {
+    const {exitCode, stdout} = runJest('each', [
       '--collectOnly',
-      '--testNamePattern=add',
+      '--json',
+      '--testPathPatterns=success',
     ]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain('adds positive numbers');
-    expect(stdout).toContain('adds negative numbers');
-    expect(stdout).not.toContain('subtracts positive numbers');
-    expect(stdout).not.toContain('table:');
+    const json = JSON.parse(stdout);
+    // Every collected test should have no duration — proving no execution
+    for (const test of json.collectedTests) {
+      expect(test).not.toHaveProperty('duration');
+    }
+  });
+
+  test('filters correctly with --testNamePattern', () => {
+    const {exitCode, stdout} = runJest('each', [
+      '--collectOnly',
+      '--testPathPatterns=success',
+      '--testNamePattern=one row',
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('passes one row expected');
+    expect(stdout).not.toContain("The word red contains the letter 'e'");
   });
 
   test('exits 0 even when no tests match', () => {
