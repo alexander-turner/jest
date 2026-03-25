@@ -1,5 +1,9 @@
 ## main
 
+### Features
+
+- `[jest-circus, jest-cli, jest-config, jest-core, jest-types]` Add `--collectOnly` flag to discover and list tests without executing them ([#1](https://github.com/alexander-turner/jest/pull/1))
+
 ## 30.3.0
 
 ### Features
