@@ -904,6 +904,7 @@ export default async function normalize(
       case 'extensionsToTreatAsEsm':
       case 'globals':
       case 'fakeTimers':
+      case 'collectOnly':
       case 'findRelatedTests':
       case 'forceCoverageMatch':
       case 'forceExit':

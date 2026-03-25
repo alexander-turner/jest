@@ -269,6 +269,7 @@ export const InitialOptions = Type.Partial(
     logHeapUsage: Type.Boolean(),
     lastCommit: Type.Boolean(),
     listTests: Type.Boolean(),
+    collectOnly: Type.Boolean(),
     maxConcurrency: Type.Integer(),
     maxWorkers: Type.Union([Type.String(), Type.Integer()]),
     moduleDirectories: Type.Array(Type.String()),

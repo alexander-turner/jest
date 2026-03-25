@@ -22,7 +22,7 @@ const jestAdapter = async (
   testPath: string,
   sendMessageToJest?: TestFileEvent,
 ): Promise<TestResult> => {
-  const {initialize, runAndTransformResultsToJestFormat} =
+  const {initialize, runAndTransformResultsToJestFormat, collectTestsWithoutRunning} =
     runtime.requireInternalModule<typeof import('./jestAdapterInit')>(
       FRAMEWORK_INITIALIZER,
     );
@@ -94,6 +94,15 @@ const jestAdapter = async (
     await runtime.unstable_importModule(testPath);
   } else {
     runtime.requireModule(testPath);
+  }
+
+  if (globalConfig.collectOnly) {
+    const results = await collectTestsWithoutRunning({
+      config,
+      globalConfig,
+      testPath,
+    });
+    return deepCyclicCopy(results, {keepPrototype: false});
   }
 
   const setupAfterEnvPerfStats = {

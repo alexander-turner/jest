@@ -140,6 +140,87 @@ export const initialize = async ({
   return {globals: globalsObject, snapshotState};
 };
 
+const collectTestEntries = (
+  describeBlock: Circus.DescribeBlock,
+): Array<Circus.TestEntry> => {
+  const tests: Array<Circus.TestEntry> = [];
+  for (const child of describeBlock.children) {
+    if (child.type === 'test') {
+      tests.push(child);
+    } else if (child.type === 'describeBlock') {
+      tests.push(...collectTestEntries(child));
+    }
+  }
+  return tests;
+};
+
+const getTestNamesPath = (
+  test: Circus.TestEntry,
+): Array<string> => {
+  const titles: Array<string> = [];
+  let parent: Circus.TestEntry | Circus.DescribeBlock | undefined = test;
+  do {
+    titles.unshift(parent.name);
+  } while ((parent = parent.parent));
+  return titles;
+};
+
+export const collectTestsWithoutRunning = async ({
+  config,
+  globalConfig,
+  testPath,
+}: {
+  config: Config.ProjectConfig;
+  globalConfig: Config.GlobalConfig;
+  testPath: string;
+}): Promise<TestResult> => {
+  const {rootDescribeBlock} = getRunnerState();
+  const testEntries = collectTestEntries(rootDescribeBlock);
+
+  const assertionResults: Array<AssertionResult> = testEntries.map(test => {
+    const testNamesPath = getTestNamesPath(test);
+    const ancestorTitles = testNamesPath.filter(
+      name => name !== ROOT_DESCRIBE_BLOCK_NAME,
+    );
+    const title = ancestorTitles.pop();
+
+    return {
+      ancestorTitles,
+      duration: null,
+      failing: false,
+      failureDetails: [],
+      failureMessages: [],
+      fullName: title
+        ? [...ancestorTitles, title].join(' ')
+        : ancestorTitles.join(' '),
+      invocations: 0,
+      location: null,
+      numPassingAsserts: 0,
+      retryReasons: [],
+      startAt: null,
+      status: 'pending' as Status,
+      title: title || '',
+    };
+  });
+
+  await dispatch({name: 'teardown'});
+
+  const emptyTestResult = createEmptyTestResult();
+
+  return {
+    ...emptyTestResult,
+    console: undefined,
+    displayName: config.displayName,
+    failureMessage: null,
+    numFailingTests: 0,
+    numPassingTests: 0,
+    numPendingTests: assertionResults.length,
+    numTodoTests: 0,
+    testFilePath: testPath,
+    testResults: assertionResults,
+  };
+};
+
 export const runAndTransformResultsToJestFormat = async ({
   config,
   globalConfig,
