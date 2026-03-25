@@ -53,19 +53,16 @@ describe('jest --collectOnly', () => {
     expect(nestedTest.ancestorTitles.length).toBeGreaterThan(0);
   });
 
-  test('does not execute tests (all results are pending)', () => {
+  test('does not execute tests (failing tests still exit 0)', () => {
     const {exitCode, stdout} = runJest('each', [
       '--collectOnly',
-      '--json',
-      '--testPathPatterns=success',
+      '--testPathPatterns=failure',
     ]);
 
+    // failure.test.js would exit 1 if tests actually ran
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
-    // Every collected test should have no duration — proving no execution
-    for (const test of json.collectedTests) {
-      expect(test).not.toHaveProperty('duration');
-    }
+    expect(stdout).toContain('failure.test.js');
+    expect(stdout).toContain('fails');
   });
 
   test('filters correctly with --testNamePattern', () => {
