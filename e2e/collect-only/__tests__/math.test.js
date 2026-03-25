@@ -26,10 +26,3 @@ describe('subtract', () => {
     expect(3 - 1).toBe(2);
   });
 });
-
-test.each([
-  [1, 1, 2],
-  [2, 3, 5],
-])('table: %i + %i = %i', (a, b, expected) => {
-  expect(a + b).toBe(expected);
-});

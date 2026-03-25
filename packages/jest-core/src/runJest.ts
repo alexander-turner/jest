@@ -12,6 +12,7 @@ import chalk from 'chalk';
 import exit from 'exit-x';
 import * as fs from 'graceful-fs';
 import {CustomConsole} from '@jest/console';
+import {VerboseReporter} from '@jest/reporters';
 import {
   type AggregatedResult,
   type AssertionResult,
@@ -39,23 +40,6 @@ import serializeToJSON from './lib/serializeToJSON';
 import runGlobalHook from './runGlobalHook';
 import type {Filter, TestRunData} from './types';
 
-const groupTestsBySuites = (testResults: Array<AssertionResult>): Suite => {
-  const root: Suite = {suites: [], tests: [], title: ''};
-  for (const testResult of testResults) {
-    let targetSuite = root;
-    for (const title of testResult.ancestorTitles) {
-      let matchingSuite = targetSuite.suites.find(s => s.title === title);
-      if (!matchingSuite) {
-        matchingSuite = {suites: [], tests: [], title};
-        targetSuite.suites.push(matchingSuite);
-      }
-      targetSuite = matchingSuite;
-    }
-    targetSuite.tests.push(testResult);
-  }
-  return root;
-};
-
 const printCollectedSuite = (
   suite: Suite,
   outputStream: NodeJS.WritableStream,
@@ -78,7 +62,7 @@ const printCollectedTestTree = (
   testResults: Array<AssertionResult>,
   outputStream: NodeJS.WritableStream,
 ): void => {
-  const root = groupTestsBySuites(testResults);
+  const root = VerboseReporter.groupTestsBySuites(testResults);
   for (const test of root.tests) {
     outputStream.write(`  \u270E ${test.title}\n`);
   }

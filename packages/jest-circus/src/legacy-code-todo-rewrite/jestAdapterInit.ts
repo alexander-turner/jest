@@ -33,7 +33,7 @@ import {
 } from '../state';
 import testCaseReportHandler from '../testCaseReportHandler';
 import {unhandledRejectionHandler} from '../unhandledRejectionHandler';
-import {getTestID} from '../utils';
+import {getTestID, getTestNamesPath} from '../utils';
 
 interface RuntimeGlobals extends Global.TestFrameworkGlobals {
   expect: JestExpect;
@@ -154,17 +154,6 @@ const collectTestEntries = (
   return tests;
 };
 
-const getTestNamesPath = (
-  test: Circus.TestEntry,
-): Array<string> => {
-  const titles: Array<string> = [];
-  let parent: Circus.TestEntry | Circus.DescribeBlock | undefined = test;
-  do {
-    titles.unshift(parent.name);
-  } while ((parent = parent.parent));
-  return titles;
-};
-
 export const collectTestsWithoutRunning = async ({
   config,
   testPath,
@@ -176,8 +165,8 @@ export const collectTestsWithoutRunning = async ({
   const testEntries = collectTestEntries(rootDescribeBlock);
 
   const assertionResults: Array<AssertionResult> = testEntries.map(test => {
-    const testNamesPath = getTestNamesPath(test);
-    const ancestorTitles = testNamesPath.filter(
+    const namesPath = getTestNamesPath(test);
+    const ancestorTitles = namesPath.filter(
       name => name !== ROOT_DESCRIBE_BLOCK_NAME,
     );
     const title = ancestorTitles.pop();
