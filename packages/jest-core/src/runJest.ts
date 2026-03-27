@@ -40,7 +40,7 @@ import serializeToJSON from './lib/serializeToJSON';
 import runGlobalHook from './runGlobalHook';
 import type {Filter, TestRunData} from './types';
 
-const printCollectedSuite = (
+export const printCollectedSuite = (
   suite: Suite,
   outputStream: NodeJS.WritableStream,
   indentLevel: number,
@@ -56,7 +56,7 @@ const printCollectedSuite = (
   }
 };
 
-const printCollectedTestTree = (
+export const printCollectedTestTree = (
   testResults: Array<AssertionResult>,
   outputStream: NodeJS.WritableStream,
 ): void => {
