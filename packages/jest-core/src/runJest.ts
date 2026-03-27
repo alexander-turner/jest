@@ -15,7 +15,6 @@ import {CustomConsole} from '@jest/console';
 import {VerboseReporter} from '@jest/reporters';
 import {
   type AggregatedResult,
-  type AssertionResult,
   type Suite,
   type Test,
   type TestContext,
@@ -39,35 +38,6 @@ import getNoTestsFoundMessage from './getNoTestsFoundMessage';
 import serializeToJSON from './lib/serializeToJSON';
 import runGlobalHook from './runGlobalHook';
 import type {Filter, TestRunData} from './types';
-
-export const printCollectedSuite = (
-  suite: Suite,
-  outputStream: NodeJS.WritableStream,
-  indentLevel: number,
-): void => {
-  if (suite.title) {
-    outputStream.write(`${'  '.repeat(indentLevel)}\u270E ${suite.title}\n`);
-  }
-  for (const test of suite.tests) {
-    outputStream.write(`${'  '.repeat(indentLevel + 1)}\u270E ${test.title}\n`);
-  }
-  for (const child of suite.suites) {
-    printCollectedSuite(child, outputStream, indentLevel + 1);
-  }
-};
-
-export const printCollectedTestTree = (
-  testResults: Array<AssertionResult>,
-  outputStream: NodeJS.WritableStream,
-): void => {
-  const root = VerboseReporter.groupTestsBySuites(testResults);
-  for (const test of root.tests) {
-    outputStream.write(`  \u270E ${test.title}\n`);
-  }
-  for (const suite of root.suites) {
-    printCollectedSuite(suite, outputStream, 1);
-  }
-};
 
 const getTestPaths = async (
   globalConfig: Config.GlobalConfig,
@@ -288,8 +258,7 @@ export default async function runJest({
       return;
     }
 
-    // Run through the scheduler so the framework collects tests without executing.
-    // Use silent mode to suppress default reporter output.
+    // Suppress reporters; circus collects tests without executing.
     const collectOnlyConfig: Config.GlobalConfig = Object.freeze({
       ...globalConfig,
       reporters: [],
@@ -301,45 +270,37 @@ export default async function runJest({
     });
     const results = await scheduler.scheduleTests(allTests, testWatcher);
 
-    // testNamePattern filtering is already applied by the circus framework
-    // during test collection, so results.testResults only contain matching tests.
-    const suiteResults = results.testResults.filter(
-      r => r.testResults.length > 0,
-    );
-
-    if (globalConfig.json) {
-      const collectedTests = suiteResults.flatMap(testResult =>
-        testResult.testResults.map(assertion => ({
-          ancestorTitles: assertion.ancestorTitles,
-          filePath: testResult.testFilePath,
-          testName: assertion.title,
-        })),
-      );
-      const jsonOutput = {
-        collectedTests,
-        numTotalTestSuites: suiteResults.length,
-        numTotalTests: collectedTests.length,
-        success: true,
+    if (!globalConfig.json) {
+      // Print test tree using VerboseReporter's existing grouping logic.
+      const printSuite = (suite: Suite, indent: number): void => {
+        if (suite.title) {
+          outputStream.write(`${'  '.repeat(indent)}${suite.title}\n`);
+        }
+        for (const t of suite.tests) {
+          outputStream.write(`${'  '.repeat(indent + 1)}${t.title}\n`);
+        }
+        for (const child of suite.suites) {
+          printSuite(child, indent + 1);
+        }
       };
-      const jsonString = serializeToJSON(jsonOutput);
-      if (globalConfig.outputFile) {
-        const cwd = tryRealpath(process.cwd());
-        const filePath = path.resolve(cwd, globalConfig.outputFile);
-        fs.writeFileSync(filePath, `${jsonString}\n`);
-        outputStream.write(
-          `Test results written to: ${path.relative(cwd, filePath)}\n`,
-        );
-      } else {
-        process.stdout.write(`${jsonString}\n`);
-      }
-    } else {
-      for (const testResult of suiteResults) {
-        outputStream.write(`${testResult.testFilePath}\n`);
-        printCollectedTestTree(testResult.testResults, outputStream);
+      for (const testResult of results.testResults) {
+        if (testResult.testResults.length > 0) {
+          outputStream.write(`${testResult.testFilePath}\n`);
+          const root = VerboseReporter.groupTestsBySuites(
+            testResult.testResults,
+          );
+          printSuite(root, 0);
+        }
       }
     }
 
-    onComplete?.(results);
+    await processResults(results, {
+      json: globalConfig.json,
+      onComplete,
+      outputFile: globalConfig.outputFile,
+      outputStream,
+      testResultsProcessor: globalConfig.testResultsProcessor,
+    });
     return;
   }
 

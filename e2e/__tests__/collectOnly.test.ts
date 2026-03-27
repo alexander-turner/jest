@@ -15,12 +15,9 @@ describe('jest --collectOnly', () => {
     ]);
 
     expect(exitCode).toBe(0);
-    // Verify test.each tests appear
     expect(stdout).toContain("The word red contains the letter 'e'");
     expect(stdout).toContain('passes one row expected true == true');
-    // Verify describe.each blocks appear
     expect(stdout).toContain('passes all rows expected true == true');
-    // Verify file path appears
     expect(stdout).toContain('success.test.js');
   });
 
@@ -35,22 +32,13 @@ describe('jest --collectOnly', () => {
     const json = JSON.parse(stdout);
     expect(json.success).toBe(true);
     expect(json.numTotalTestSuites).toBe(1);
-    expect(json.collectedTests).toBeInstanceOf(Array);
-    expect(json.collectedTests.length).toBeGreaterThan(0);
+    expect(json.numPendingTests).toBeGreaterThan(0);
 
-    for (const test of json.collectedTests) {
-      expect(test).toHaveProperty('filePath');
-      expect(test).toHaveProperty('testName');
-      expect(test).toHaveProperty('ancestorTitles');
-      expect(Array.isArray(test.ancestorTitles)).toBe(true);
+    const testFile = json.testResults[0];
+    expect(testFile.name).toContain('success.test.js');
+    for (const assertion of testFile.assertionResults) {
+      expect(assertion.status).toBe('pending');
     }
-
-    // Verify a describe.each test has correct ancestor titles
-    const nestedTest = json.collectedTests.find(
-      (t: {testName: string}) => t.testName === 'passes',
-    );
-    expect(nestedTest).toBeDefined();
-    expect(nestedTest.ancestorTitles.length).toBeGreaterThan(0);
   });
 
   test('does not execute tests (failing tests still exit 0)', () => {
@@ -59,7 +47,6 @@ describe('jest --collectOnly', () => {
       '--testPathPatterns=failure',
     ]);
 
-    // failure.test.js would exit 1 if tests actually ran
     expect(exitCode).toBe(0);
     expect(stdout).toContain('failure.test.js');
     expect(stdout).toContain('fails');
