@@ -91,4 +91,21 @@ describe('collectTestsWithoutRunning', () => {
     expect(result.testResults).toHaveLength(0);
     expect(result.numPendingTests).toBe(0);
   });
+
+  it('filters tests by testNamePattern from runner state', async () => {
+    const state = getRunnerState();
+    state.testNamePattern = /one/;
+    const root = state.rootDescribeBlock;
+    addTestToBlock('test one', root);
+    addTestToBlock('test two', root);
+
+    const result = await collectTestsWithoutRunning({
+      config: makeProjectConfig(),
+      testPath: '/path/to/test.js',
+    });
+
+    expect(result.testResults).toHaveLength(1);
+    expect(result.testResults[0].title).toBe('test one');
+    expect(result.numPendingTests).toBe(1);
+  });
 });

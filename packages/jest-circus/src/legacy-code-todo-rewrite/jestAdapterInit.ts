@@ -140,20 +140,6 @@ export const initialize = async ({
   return {globals: globalsObject, snapshotState};
 };
 
-const collectTestEntries = (
-  describeBlock: Circus.DescribeBlock,
-): Array<Circus.TestEntry> => {
-  const tests: Array<Circus.TestEntry> = [];
-  for (const child of describeBlock.children) {
-    if (child.type === 'test') {
-      tests.push(child);
-    } else if (child.type === 'describeBlock') {
-      tests.push(...collectTestEntries(child));
-    }
-  }
-  return tests;
-};
-
 export const collectTestsWithoutRunning = async ({
   config,
   testPath,
@@ -161,15 +147,28 @@ export const collectTestsWithoutRunning = async ({
   config: Config.ProjectConfig;
   testPath: string;
 }): Promise<TestResult> => {
-  const {rootDescribeBlock} = getRunnerState();
-  const testEntries = collectTestEntries(rootDescribeBlock);
+  const {rootDescribeBlock, testNamePattern} = getRunnerState();
+  const testEntries: Array<Circus.TestEntry> = [];
+  const stack: Array<Circus.DescribeBlock> = [rootDescribeBlock];
+
+  while (stack.length > 0) {
+    const block = stack.pop()!;
+    for (const child of block.children) {
+      if (child.type === 'test') {
+        if (!testNamePattern || testNamePattern.test(getTestID(child))) {
+          testEntries.push(child);
+        }
+      } else if (child.type === 'describeBlock') {
+        stack.push(child);
+      }
+    }
+  }
 
   const assertionResults: Array<AssertionResult> = testEntries.map(test => {
-    const namesPath = getTestNamesPath(test);
-    const ancestorTitles = namesPath.filter(
+    const ancestorTitles = getTestNamesPath(test).filter(
       name => name !== ROOT_DESCRIBE_BLOCK_NAME,
     );
-    const title = ancestorTitles.pop();
+    const title = ancestorTitles.pop() ?? '';
 
     return {
       ancestorTitles,
@@ -177,16 +176,14 @@ export const collectTestsWithoutRunning = async ({
       failing: false,
       failureDetails: [],
       failureMessages: [],
-      fullName: title
-        ? [...ancestorTitles, title].join(' ')
-        : ancestorTitles.join(' '),
+      fullName: [...ancestorTitles, title].join(' '),
       invocations: 0,
       location: null,
       numPassingAsserts: 0,
       retryReasons: [],
       startAt: null,
       status: 'pending' as Status,
-      title: title || '',
+      title,
     };
   });
 

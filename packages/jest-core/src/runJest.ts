@@ -301,51 +301,27 @@ export default async function runJest({
     });
     const results = await scheduler.scheduleTests(allTests, testWatcher);
 
-    // Filter by testNamePattern if provided
-    const testNamePatternRE = globalConfig.testNamePattern
-      ? new RegExp(globalConfig.testNamePattern, 'i')
-      : null;
-
-    const collectedTests: Array<{
-      ancestorTitles: Array<string>;
-      filePath: string;
-      testName: string;
-    }> = [];
-
-    // Build filtered view without mutating original results
-    const filteredTestResults = results.testResults
-      .map(testResult => {
-        const assertions = testNamePatternRE
-          ? testResult.testResults.filter(assertion => {
-              const fullName = [
-                ...assertion.ancestorTitles,
-                assertion.title,
-              ].join(' ');
-              return testNamePatternRE.test(fullName);
-            })
-          : testResult.testResults;
-
-        const filePath = testResult.testFilePath;
-        for (const assertion of assertions) {
-          collectedTests.push({
-            ancestorTitles: assertion.ancestorTitles,
-            filePath,
-            testName: assertion.title,
-          });
-        }
-
-        return {assertions, filePath};
-      })
-      .filter(r => r.assertions.length > 0);
+    // testNamePattern filtering is already applied by the circus framework
+    // during test collection, so results.testResults only contain matching tests.
+    const suiteResults = results.testResults.filter(
+      r => r.testResults.length > 0,
+    );
 
     if (globalConfig.json) {
+      const collectedTests = suiteResults.flatMap(testResult =>
+        testResult.testResults.map(assertion => ({
+          ancestorTitles: assertion.ancestorTitles,
+          filePath: testResult.testFilePath,
+          testName: assertion.title,
+        })),
+      );
       const jsonOutput = {
         collectedTests,
-        numTotalTestSuites: filteredTestResults.length,
+        numTotalTestSuites: suiteResults.length,
         numTotalTests: collectedTests.length,
         success: true,
       };
-      const jsonString = JSON.stringify(jsonOutput, null, 2);
+      const jsonString = serializeToJSON(jsonOutput);
       if (globalConfig.outputFile) {
         const cwd = tryRealpath(process.cwd());
         const filePath = path.resolve(cwd, globalConfig.outputFile);
@@ -357,9 +333,9 @@ export default async function runJest({
         process.stdout.write(`${jsonString}\n`);
       }
     } else {
-      for (const {assertions, filePath} of filteredTestResults) {
-        outputStream.write(`${filePath}\n`);
-        printCollectedTestTree(assertions, outputStream);
+      for (const testResult of suiteResults) {
+        outputStream.write(`${testResult.testFilePath}\n`);
+        printCollectedTestTree(testResult.testResults, outputStream);
       }
     }
 
