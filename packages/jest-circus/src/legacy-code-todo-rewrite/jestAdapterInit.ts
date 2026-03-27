@@ -148,21 +148,23 @@ export const collectTestsWithoutRunning = async ({
   testPath: string;
 }): Promise<TestResult> => {
   const {rootDescribeBlock, testNamePattern} = getRunnerState();
-  const testEntries: Array<Circus.TestEntry> = [];
-  const stack: Array<Circus.DescribeBlock> = [rootDescribeBlock];
 
-  while (stack.length > 0) {
-    const block = stack.pop()!;
+  const collectTests = (
+    block: Circus.DescribeBlock,
+  ): Array<Circus.TestEntry> => {
+    const entries: Array<Circus.TestEntry> = [];
     for (const child of block.children) {
       if (child.type === 'test') {
         if (!testNamePattern || testNamePattern.test(getTestID(child))) {
-          testEntries.push(child);
+          entries.push(child);
         }
       } else if (child.type === 'describeBlock') {
-        stack.push(child);
+        entries.push(...collectTests(child));
       }
     }
-  }
+    return entries;
+  };
+  const testEntries = collectTests(rootDescribeBlock);
 
   const assertionResults: Array<AssertionResult> = testEntries.map(test => {
     const ancestorTitles = getTestNamesPath(test).filter(

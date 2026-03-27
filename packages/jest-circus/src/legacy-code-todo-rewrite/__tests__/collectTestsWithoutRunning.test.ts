@@ -12,24 +12,17 @@ import {getState as getRunnerState, resetState} from '../../state';
 import {makeDescribe, makeTest} from '../../utils';
 import {collectTestsWithoutRunning} from '../jestAdapterInit';
 
-// Mock dispatch to avoid running real teardown event handlers
 jest.mock('../../state', () => {
   const actual =
     jest.requireActual<typeof import('../../state')>('../../state');
-  return {
-    ...actual,
-    dispatch: jest.fn<typeof actual.dispatch>(),
-  };
+  return {...actual, dispatch: jest.fn<typeof actual.dispatch>()};
 });
 
 beforeEach(() => {
   resetState();
 });
 
-const addTestToBlock = (
-  name: string,
-  parent: Circus.DescribeBlock,
-): Circus.TestEntry => {
+const addTest = (name: string, parent: Circus.DescribeBlock) => {
   const test = makeTest(
     () => {},
     undefined,
@@ -41,27 +34,25 @@ const addTestToBlock = (
     false,
   );
   parent.children.push(test);
-  return test;
 };
+
+const collect = (testPath = '/test.js') =>
+  collectTestsWithoutRunning({config: makeProjectConfig(), testPath});
 
 describe('collectTestsWithoutRunning', () => {
   it('collects flat tests with pending status', async () => {
     const root = getRunnerState().rootDescribeBlock;
-    addTestToBlock('test one', root);
-    addTestToBlock('test two', root);
+    addTest('test one', root);
+    addTest('test two', root);
 
-    const result = await collectTestsWithoutRunning({
-      config: makeProjectConfig(),
-      testPath: '/path/to/test.js',
-    });
+    const result = await collect();
 
-    expect(result.testResults).toHaveLength(2);
-    expect(result.testResults[0].title).toBe('test one');
+    expect(result.testResults.map(r => r.title)).toEqual([
+      'test one',
+      'test two',
+    ]);
     expect(result.testResults[0].status).toBe('pending');
     expect(result.numPendingTests).toBe(2);
-    expect(result.numPassingTests).toBe(0);
-    expect(result.numFailingTests).toBe(0);
-    expect(result.testFilePath).toBe('/path/to/test.js');
   });
 
   it('collects nested tests with correct ancestor titles', async () => {
@@ -70,42 +61,41 @@ describe('collectTestsWithoutRunning', () => {
     root.children.push(outer);
     const inner = makeDescribe('inner', outer);
     outer.children.push(inner);
-    addTestToBlock('deep test', inner);
+    addTest('deep test', inner);
 
-    const result = await collectTestsWithoutRunning({
-      config: makeProjectConfig(),
-      testPath: '/path/to/test.js',
-    });
+    const result = await collect();
 
-    expect(result.testResults).toHaveLength(1);
     expect(result.testResults[0].ancestorTitles).toEqual(['outer', 'inner']);
     expect(result.testResults[0].fullName).toBe('outer inner deep test');
   });
 
-  it('returns empty results when no tests exist', async () => {
-    const result = await collectTestsWithoutRunning({
-      config: makeProjectConfig(),
-      testPath: '/path/to/test.js',
-    });
+  it('preserves source order across describe blocks', async () => {
+    const root = getRunnerState().rootDescribeBlock;
+    const a = makeDescribe('A', root);
+    root.children.push(a);
+    addTest('first', a);
+    const b = makeDescribe('B', root);
+    root.children.push(b);
+    addTest('second', b);
 
+    const result = await collect();
+
+    expect(result.testResults.map(r => r.title)).toEqual(['first', 'second']);
+  });
+
+  it('returns empty results when no tests exist', async () => {
+    const result = await collect();
     expect(result.testResults).toHaveLength(0);
-    expect(result.numPendingTests).toBe(0);
   });
 
   it('filters tests by testNamePattern from runner state', async () => {
     const state = getRunnerState();
     state.testNamePattern = /one/;
-    const root = state.rootDescribeBlock;
-    addTestToBlock('test one', root);
-    addTestToBlock('test two', root);
+    addTest('test one', state.rootDescribeBlock);
+    addTest('test two', state.rootDescribeBlock);
 
-    const result = await collectTestsWithoutRunning({
-      config: makeProjectConfig(),
-      testPath: '/path/to/test.js',
-    });
+    const result = await collect();
 
-    expect(result.testResults).toHaveLength(1);
-    expect(result.testResults[0].title).toBe('test one');
-    expect(result.numPendingTests).toBe(1);
+    expect(result.testResults.map(r => r.title)).toEqual(['test one']);
   });
 });

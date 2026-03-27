@@ -261,6 +261,7 @@ export default async function runJest({
     // Suppress reporters; circus collects tests without executing.
     const collectOnlyConfig: Config.GlobalConfig = Object.freeze({
       ...globalConfig,
+      collectCoverage: false,
       reporters: [],
       silent: true,
     });
