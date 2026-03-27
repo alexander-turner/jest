@@ -323,7 +323,9 @@ export const makeRunResult = (
   unhandledErrors: unhandledErrors.map(_getError).map(getErrorStack),
 });
 
-export const getTestNamesPath = (test: Circus.TestEntry): Circus.TestNamesPath => {
+export const getTestNamesPath = (
+  test: Circus.TestEntry,
+): Circus.TestNamesPath => {
   const titles = [];
   let parent: Circus.TestEntry | Circus.DescribeBlock | undefined = test;
   do {

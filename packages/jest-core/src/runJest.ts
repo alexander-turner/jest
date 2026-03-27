@@ -49,9 +49,7 @@ const printCollectedSuite = (
     outputStream.write(`${'  '.repeat(indentLevel)}\u270E ${suite.title}\n`);
   }
   for (const test of suite.tests) {
-    outputStream.write(
-      `${'  '.repeat(indentLevel + 1)}\u270E ${test.title}\n`,
-    );
+    outputStream.write(`${'  '.repeat(indentLevel + 1)}\u270E ${test.title}\n`);
   }
   for (const child of suite.suites) {
     printCollectedSuite(child, outputStream, indentLevel + 1);
