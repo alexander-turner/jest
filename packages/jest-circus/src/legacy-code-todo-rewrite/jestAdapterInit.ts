@@ -33,7 +33,7 @@ import {
 } from '../state';
 import testCaseReportHandler from '../testCaseReportHandler';
 import {unhandledRejectionHandler} from '../unhandledRejectionHandler';
-import {getTestID} from '../utils';
+import {getTestID, getTestNamesPath} from '../utils';
 
 interface RuntimeGlobals extends Global.TestFrameworkGlobals {
   expect: JestExpect;
@@ -138,6 +138,74 @@ export const initialize = async ({
 
   // Return it back to the outer scope (test runner outside the VM).
   return {globals: globalsObject, snapshotState};
+};
+
+const collectTestEntries = (
+  describeBlock: Circus.DescribeBlock,
+): Array<Circus.TestEntry> => {
+  const tests: Array<Circus.TestEntry> = [];
+  for (const child of describeBlock.children) {
+    if (child.type === 'test') {
+      tests.push(child);
+    } else if (child.type === 'describeBlock') {
+      tests.push(...collectTestEntries(child));
+    }
+  }
+  return tests;
+};
+
+export const collectTestsWithoutRunning = async ({
+  config,
+  testPath,
+}: {
+  config: Config.ProjectConfig;
+  testPath: string;
+}): Promise<TestResult> => {
+  const {rootDescribeBlock} = getRunnerState();
+  const testEntries = collectTestEntries(rootDescribeBlock);
+
+  const assertionResults: Array<AssertionResult> = testEntries.map(test => {
+    const namesPath = getTestNamesPath(test);
+    const ancestorTitles = namesPath.filter(
+      name => name !== ROOT_DESCRIBE_BLOCK_NAME,
+    );
+    const title = ancestorTitles.pop();
+
+    return {
+      ancestorTitles,
+      duration: null,
+      failing: false,
+      failureDetails: [],
+      failureMessages: [],
+      fullName: title
+        ? [...ancestorTitles, title].join(' ')
+        : ancestorTitles.join(' '),
+      invocations: 0,
+      location: null,
+      numPassingAsserts: 0,
+      retryReasons: [],
+      startAt: null,
+      status: 'pending' as Status,
+      title: title || '',
+    };
+  });
+
+  await dispatch({name: 'teardown'});
+
+  const emptyTestResult = createEmptyTestResult();
+
+  return {
+    ...emptyTestResult,
+    console: undefined,
+    displayName: config.displayName,
+    failureMessage: null,
+    numFailingTests: 0,
+    numPassingTests: 0,
+    numPendingTests: assertionResults.length,
+    numTodoTests: 0,
+    testFilePath: testPath,
+    testResults: assertionResults,
+  };
 };
 
 export const runAndTransformResultsToJestFormat = async ({

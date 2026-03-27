@@ -12,8 +12,11 @@ import chalk from 'chalk';
 import exit from 'exit-x';
 import * as fs from 'graceful-fs';
 import {CustomConsole} from '@jest/console';
+import {VerboseReporter} from '@jest/reporters';
 import {
   type AggregatedResult,
+  type AssertionResult,
+  type Suite,
   type Test,
   type TestContext,
   type TestResultsProcessor,
@@ -36,6 +39,35 @@ import getNoTestsFoundMessage from './getNoTestsFoundMessage';
 import serializeToJSON from './lib/serializeToJSON';
 import runGlobalHook from './runGlobalHook';
 import type {Filter, TestRunData} from './types';
+
+const printCollectedSuite = (
+  suite: Suite,
+  outputStream: NodeJS.WritableStream,
+  indentLevel: number,
+): void => {
+  if (suite.title) {
+    outputStream.write(`${'  '.repeat(indentLevel)}\u270E ${suite.title}\n`);
+  }
+  for (const test of suite.tests) {
+    outputStream.write(`${'  '.repeat(indentLevel + 1)}\u270E ${test.title}\n`);
+  }
+  for (const child of suite.suites) {
+    printCollectedSuite(child, outputStream, indentLevel + 1);
+  }
+};
+
+const printCollectedTestTree = (
+  testResults: Array<AssertionResult>,
+  outputStream: NodeJS.WritableStream,
+): void => {
+  const root = VerboseReporter.groupTestsBySuites(testResults);
+  for (const test of root.tests) {
+    outputStream.write(`  \u270E ${test.title}\n`);
+  }
+  for (const suite of root.suites) {
+    printCollectedSuite(suite, outputStream, 1);
+  }
+};
 
 const getTestPaths = async (
   globalConfig: Config.GlobalConfig,
@@ -247,6 +279,93 @@ export default async function runJest({
   }
 
   const hasTests = allTests.length > 0;
+
+  if (globalConfig.collectOnly) {
+    if (!hasTests) {
+      // eslint-disable-next-line no-console
+      console.log('No tests found.');
+      onComplete?.(makeEmptyAggregatedTestResult());
+      return;
+    }
+
+    // Run through the scheduler so the framework collects tests without executing.
+    // Use silent mode to suppress default reporter output.
+    const collectOnlyConfig: Config.GlobalConfig = Object.freeze({
+      ...globalConfig,
+      reporters: [],
+      silent: true,
+    });
+    const scheduler = await createTestScheduler(collectOnlyConfig, {
+      startRun,
+      ...testSchedulerContext,
+    });
+    const results = await scheduler.scheduleTests(allTests, testWatcher);
+
+    // Filter by testNamePattern if provided
+    const testNamePatternRE = globalConfig.testNamePattern
+      ? new RegExp(globalConfig.testNamePattern, 'i')
+      : null;
+
+    const collectedTests: Array<{
+      ancestorTitles: Array<string>;
+      filePath: string;
+      testName: string;
+    }> = [];
+
+    // Build filtered view without mutating original results
+    const filteredTestResults = results.testResults
+      .map(testResult => {
+        const assertions = testNamePatternRE
+          ? testResult.testResults.filter(assertion => {
+              const fullName = [
+                ...assertion.ancestorTitles,
+                assertion.title,
+              ].join(' ');
+              return testNamePatternRE.test(fullName);
+            })
+          : testResult.testResults;
+
+        const filePath = testResult.testFilePath;
+        for (const assertion of assertions) {
+          collectedTests.push({
+            ancestorTitles: assertion.ancestorTitles,
+            filePath,
+            testName: assertion.title,
+          });
+        }
+
+        return {assertions, filePath};
+      })
+      .filter(r => r.assertions.length > 0);
+
+    if (globalConfig.json) {
+      const jsonOutput = {
+        collectedTests,
+        numTotalTestSuites: filteredTestResults.length,
+        numTotalTests: collectedTests.length,
+        success: true,
+      };
+      const jsonString = JSON.stringify(jsonOutput, null, 2);
+      if (globalConfig.outputFile) {
+        const cwd = tryRealpath(process.cwd());
+        const filePath = path.resolve(cwd, globalConfig.outputFile);
+        fs.writeFileSync(filePath, `${jsonString}\n`);
+        outputStream.write(
+          `Test results written to: ${path.relative(cwd, filePath)}\n`,
+        );
+      } else {
+        process.stdout.write(`${jsonString}\n`);
+      }
+    } else {
+      for (const {assertions, filePath} of filteredTestResults) {
+        outputStream.write(`${filePath}\n`);
+        printCollectedTestTree(assertions, outputStream);
+      }
+    }
+
+    onComplete?.(results);
+    return;
+  }
 
   if (!hasTests) {
     const {exitWith0, message: noTestsFoundMessage} = getNoTestsFoundMessage(

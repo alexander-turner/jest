@@ -133,6 +133,7 @@ const groupOptions = (
     ci: options.ci,
     collectCoverage: options.collectCoverage,
     collectCoverageFrom: options.collectCoverageFrom,
+    collectOnly: options.collectOnly,
     coverageDirectory: options.coverageDirectory,
     coverageProvider: options.coverageProvider,
     coverageReporters: options.coverageReporters,
