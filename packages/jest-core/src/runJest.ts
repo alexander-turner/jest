@@ -12,8 +12,10 @@ import chalk from 'chalk';
 import exit from 'exit-x';
 import * as fs from 'graceful-fs';
 import {CustomConsole} from '@jest/console';
+import {VerboseReporter} from '@jest/reporters';
 import {
   type AggregatedResult,
+  type Suite,
   type Test,
   type TestContext,
   type TestResultsProcessor,
@@ -247,6 +249,61 @@ export default async function runJest({
   }
 
   const hasTests = allTests.length > 0;
+
+  if (globalConfig.collectOnly) {
+    if (!hasTests) {
+      // eslint-disable-next-line no-console
+      console.log('No tests found.');
+      onComplete?.(makeEmptyAggregatedTestResult());
+      return;
+    }
+
+    // Suppress reporters; circus collects tests without executing.
+    const collectOnlyConfig: Config.GlobalConfig = Object.freeze({
+      ...globalConfig,
+      collectCoverage: false,
+      reporters: [],
+      silent: true,
+    });
+    const scheduler = await createTestScheduler(collectOnlyConfig, {
+      startRun,
+      ...testSchedulerContext,
+    });
+    const results = await scheduler.scheduleTests(allTests, testWatcher);
+
+    if (!globalConfig.json) {
+      // Print test tree using VerboseReporter's existing grouping logic.
+      const printSuite = (suite: Suite, indent: number): void => {
+        if (suite.title) {
+          outputStream.write(`${'  '.repeat(indent)}${suite.title}\n`);
+        }
+        for (const t of suite.tests) {
+          outputStream.write(`${'  '.repeat(indent + 1)}${t.title}\n`);
+        }
+        for (const child of suite.suites) {
+          printSuite(child, indent + 1);
+        }
+      };
+      for (const testResult of results.testResults) {
+        if (testResult.testResults.length > 0) {
+          outputStream.write(`${testResult.testFilePath}\n`);
+          const root = VerboseReporter.groupTestsBySuites(
+            testResult.testResults,
+          );
+          printSuite(root, 0);
+        }
+      }
+    }
+
+    await processResults(results, {
+      json: globalConfig.json,
+      onComplete,
+      outputFile: globalConfig.outputFile,
+      outputStream,
+      testResultsProcessor: globalConfig.testResultsProcessor,
+    });
+    return;
+  }
 
   if (!hasTests) {
     const {exitWith0, message: noTestsFoundMessage} = getNoTestsFoundMessage(
