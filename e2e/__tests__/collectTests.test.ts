@@ -7,10 +7,10 @@
 
 import runJest from '../runJest';
 
-describe('jest --collectOnly', () => {
+describe('jest --collect-tests', () => {
   test('lists test names without executing test bodies', () => {
     const {exitCode, stdout} = runJest('each', [
-      '--collectOnly',
+      '--collect-tests',
       '--testPathPatterns=success',
     ]);
 
@@ -23,7 +23,7 @@ describe('jest --collectOnly', () => {
 
   test('produces valid JSON with --json', () => {
     const {exitCode, stdout} = runJest('each', [
-      '--collectOnly',
+      '--collect-tests',
       '--json',
       '--testPathPatterns=success',
     ]);
@@ -43,7 +43,7 @@ describe('jest --collectOnly', () => {
 
   test('does not execute tests (failing tests still exit 0)', () => {
     const {exitCode, stdout} = runJest('each', [
-      '--collectOnly',
+      '--collect-tests',
       '--testPathPatterns=failure',
     ]);
 
@@ -54,7 +54,7 @@ describe('jest --collectOnly', () => {
 
   test('filters correctly with --testNamePattern', () => {
     const {exitCode, stdout} = runJest('each', [
-      '--collectOnly',
+      '--collect-tests',
       '--testPathPatterns=success',
       '--testNamePattern=one row',
     ]);
@@ -66,7 +66,7 @@ describe('jest --collectOnly', () => {
 
   test('exits 0 even when no tests match', () => {
     const {exitCode, stdout} = runJest('each', [
-      '--collectOnly',
+      '--collect-tests',
       '--testPathPatterns=nonexistent',
     ]);
 

@@ -99,7 +99,7 @@ const jestAdapter = async (
     runtime.requireModule(testPath);
   }
 
-  if (globalConfig.collectOnly) {
+  if (globalConfig.collectTests) {
     const results = await collectTestsWithoutRunning({
       config,
       testPath,

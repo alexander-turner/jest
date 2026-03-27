@@ -250,7 +250,7 @@ export default async function runJest({
 
   const hasTests = allTests.length > 0;
 
-  if (globalConfig.collectOnly) {
+  if (globalConfig.collectTests) {
     if (!hasTests) {
       // eslint-disable-next-line no-console
       console.log('No tests found.');
@@ -259,13 +259,13 @@ export default async function runJest({
     }
 
     // Suppress reporters; circus collects tests without executing.
-    const collectOnlyConfig: Config.GlobalConfig = Object.freeze({
+    const collectTestsConfig: Config.GlobalConfig = Object.freeze({
       ...globalConfig,
       collectCoverage: false,
       reporters: [],
       silent: true,
     });
-    const scheduler = await createTestScheduler(collectOnlyConfig, {
+    const scheduler = await createTestScheduler(collectTestsConfig, {
       startRun,
       ...testSchedulerContext,
     });

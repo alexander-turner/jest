@@ -2,7 +2,7 @@
 
 ### Features
 
-- `[jest-circus, jest-cli, jest-config, jest-core, jest-types]` Add `--collectOnly` flag to discover and list tests without executing them ([#16006](https://github.com/jestjs/jest/pull/16006))
+- `[jest-circus, jest-cli, jest-config, jest-core, jest-types]` Add `--collectTests` flag to discover and list tests without executing them ([#16006](https://github.com/jestjs/jest/pull/16006))
 
 ## 30.3.0
 
