@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 import {beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {makeProjectConfig} from '@jest/test-utils';
 import type {Circus} from '@jest/types';
