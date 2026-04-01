@@ -894,6 +894,7 @@ export default async function normalize(
       case 'changedFilesWithAncestor':
       case 'clearMocks':
       case 'collectCoverage':
+      case 'collectTests':
       case 'coverageProvider':
       case 'coverageReporters':
       case 'coverageThreshold':
